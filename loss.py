@@ -3,9 +3,11 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
-def pairwise_loss(outputs1, outputs2, label1, label2, sigmoid_param=1.0, l_threshold=15.0, class_num=1.0):
-    similarity = Variable(torch.mm(label1.data.float(), label2.data.float().t()) > 0).float()
-    dot_product = sigmoid_param * torch.mm(outputs1, outputs2.t())
+
+def pairwise_loss(output, label, sigmoid_param=1.0, l_threshold=15.0, class_num=1.0):
+    '''https://github.com/thuml/HashNet/issues/27#issuecomment-494265209'''
+    similarity = Variable(torch.mm(label.data.float(), label.data.float().t()) > 0).float()
+    dot_product = sigmoid_param * torch.mm(output, output.t())
     exp_product = torch.exp(dot_product)
     mask_dot = dot_product.data > l_threshold
     mask_exp = dot_product.data <= l_threshold
@@ -23,10 +25,10 @@ def pairwise_loss(outputs1, outputs2, label1, label2, sigmoid_param=1.0, l_thres
     return loss / (torch.sum(mask_positive.float()) * class_num + torch.sum(mask_negative.float()))
 
 
-def pairwise_loss_origin(outputs1, outputs2, label1, label2):
+def pairwise_loss_debug(output1, output2, label1, label2):
     '''https://github.com/thuml/HashNet/issues/17#issuecomment-443137529'''
     similarity = Variable(torch.mm(label1.data.float(), label2.data.float().t()) > 0).float()
-    dot_product = torch.mm(outputs1, outputs2.t())
+    dot_product = torch.mm(output1, output2.t())
     #exp_product = torch.exp(dot_product)
 
     mask_positive = similarity.data > 0
@@ -46,25 +48,17 @@ def pairwise_loss_origin(outputs1, outputs2, label1, label2):
     return loss
 
 
-def pairwise_loss_exam(outputs, label, sigmoid_param=1.0, l_threshold=15.0, class_num=1.0):
-    '''https://github.com/thuml/HashNet/issues/27#issuecomment-494265209'''
-    similarity = Variable(torch.mm(label.data.float(), label.data.float().t()) > 0).float()
-    dot_product = sigmoid_param * torch.mm(outputs, outputs.t())
-    exp_product = torch.exp(dot_product)
-    mask_dot = dot_product.data > l_threshold
-    mask_exp = dot_product.data <= l_threshold
-    mask_positive = similarity.data > 0
-    mask_negative = similarity.data <= 0
-    mask_dp = mask_dot & mask_positive
-    mask_dn = mask_dot & mask_negative
-    mask_ep = mask_exp & mask_positive
-    mask_en = mask_exp & mask_negative
-
-    dot_loss = dot_product * (1-similarity)
-    exp_loss = (torch.log(1+exp_product) - similarity * dot_product)
-    loss = (torch.sum(torch.masked_select(exp_loss, Variable(mask_ep))) + torch.sum(torch.masked_select(dot_loss, Variable(mask_dp)))) * class_num + torch.sum(torch.masked_select(exp_loss, Variable(mask_en))) + torch.sum(torch.masked_select(dot_loss, Variable(mask_dn)))
-
-    return loss / (torch.sum(mask_positive.float()) * class_num + torch.sum(mask_negative.float()))
+def contrastive_loss(output, label, margin=4, balanced=False):
+    '''contrastive loss
+    - Deep Supervised Hashing for Fast Image Retrieval
+    '''
+    batch_size = u.shape[0]
+    S = torch.matmul(label, label.t())
+    dist = distance(u)
+    torch.max
+    loss_1 = S * dist + (1 - S) * tf.maximum(margin - dist, 0.0)
+    loss = tf.reduce_sum(loss_1) / (batch_size*(batch_size-1))
+    return loss
 
 
 def quantization_loss(output):

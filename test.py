@@ -1,4 +1,3 @@
-import scipy as sp
 import sys
 import argparse
 import os
@@ -6,16 +5,16 @@ import os.path as osp
 
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.optim as optim
+import torch.utils.data as util_data
+from torch.autograd import Variable
+
 import network
 import loss
 import pre_process as prep
-import torch.utils.data as util_data
-import lr_schedule
-import data_list
 from data_list import ImageList
-from torch.autograd import Variable
+from util import Logger
+from evaluation import mean_average_precision
+
 
 def save_code_and_label(params, path):
     database_code = params['database_code']
@@ -27,6 +26,7 @@ def save_code_and_label(params, path):
     np.save(path + "_test_code.npy", validation_code)
     np.save(path + "_test_labels.npy", validation_labels)
 
+
 def load_code_and_label(path):
     code_and_label = {}
     code_and_label["database_code"] = np.load(path + "_database_code.npy")
@@ -35,29 +35,6 @@ def load_code_and_label(path):
     code_and_label["test_labels"] = np.load(path + "_test_labels.npy")
     return code_and_label
 
-def mean_average_precision(params, R):
-    database_code = params['database_code']
-    validation_code = params['test_code']
-    database_labels = params['database_labels']
-    validation_labels = params['test_labels']
-    query_num = validation_code.shape[0]
-
-    sim = np.dot(database_code, validation_code.T)
-    ids = np.argsort(-sim, axis=0)
-    APx = []
-    
-    for i in range(query_num):
-        label = validation_labels[i, :]
-        label[label == 0] = -1
-        idx = ids[:, i]
-        imatch = np.sum(database_labels[idx[0:R], :] == label, axis=1) > 0
-        relevant_num = np.sum(imatch)
-        Lx = np.cumsum(imatch)
-        Px = Lx.astype(float) / np.arange(1, R+1, 1)
-        if relevant_num != 0:
-            APx.append(np.sum(Px * imatch) / relevant_num)
-    
-    return np.mean(np.array(APx))
         
 def code_predict(loader, model, name, test_10crop=True, gpu=True):
     start_test = True
@@ -104,7 +81,9 @@ def code_predict(loader, model, name, test_10crop=True, gpu=True):
                 all_label = torch.cat((all_label, labels.float()), 0)
     return torch.sign(all_output), all_label
 
+
 def predict(config):
+    print('predicting...')
     ## set pre-process
     prep_dict = {}
     prep_config = config["prep"]
@@ -139,7 +118,6 @@ def predict(config):
             dset_loaders["test"+str(i)] = util_data.DataLoader(dsets["test"+str(i)], \
                                 batch_size=data_config["test"]["batch_size"], \
                                 shuffle=False, num_workers=4)
-
     else:
         dsets["database"] = ImageList(open(data_config["database"]["list_path"]).readlines(), \
                                 transform=prep_dict["database"])
@@ -158,6 +136,7 @@ def predict(config):
     if use_gpu:
         base_network = base_network.cuda()
 
+    base_network.eval()
     database_codes, database_labels = code_predict(dset_loaders, base_network, "database", test_10crop=prep_config["test_10crop"], gpu=use_gpu)
     test_codes, test_labels = code_predict(dset_loaders, base_network, "test", test_10crop=prep_config["test_10crop"], gpu=use_gpu)
 
@@ -167,21 +146,24 @@ def predict(config):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Transfer Learning')
-    parser.add_argument('--gpu_id', type=str, default='0', help="device id to run")
+    parser.add_argument('--gpus', type=str, default='0', help="device id to run")
     parser.add_argument('--dataset', type=str, default='nus_wide', help="dataset name")
     parser.add_argument('--hash_bit', type=int, default=48, help="number of hash code bits")
-    parser.add_argument('--prefix', type=str, help="save path prefix")
-    parser.add_argument('--snapshot', type=str, help="model path prefix")
+    parser.add_argument('--net', type=str, default='ResNet50', help="base network type")
+    parser.add_argument('--prefix', type=str, default='hashnet', help="save path prefix")
+    parser.add_argument('--snapshot', type=str, default='iter_10000', help="model path prefix")
     parser.add_argument('--preload', default=False, action='store_true')
 
     args = parser.parse_args()
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id 
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
 
     # train config  
     config = {}
-    config["dataset"] = args.dataset 
-    config["snapshot_path"] = "../snapshot/"+config["dataset"]+"_"+str(args.hash_bit)+"bit_"+args.prefix+"/"+args.snapshot+"_model.pth.tar"
-    config["output_path"] = "../snapshot/"+config["dataset"]+"_"+str(args.hash_bit)+"bit_"+args.prefix
+    config["dataset"] = args.dataset
+    config["output_path"] = "../snapshot/"+config["dataset"]+"_"+str(args.hash_bit)+"bit_"+ \
+                            args.net+"_"+args.prefix
+    config["snapshot_path"] = config["output_path"]+"/"+args.snapshot+"_model.pth.tar"
+    sys.stdout = Logger(osp.join(config["output_path"], "test.log"))
 
     config["prep"] = {"test_10crop":False, "resize_size":256, "crop_size":224}
     if config["dataset"] == "imagenet":
@@ -199,7 +181,8 @@ if __name__ == "__main__":
     elif config["dataset"] == "cifar":
         config["data"] = {"database":{"list_path":"../data/cifar/database.txt", "batch_size":16}, \
                           "test":{"list_path":"../data/cifar/test.txt", "batch_size":16}}
-        config["R"] = 54000             
+        config["R"] = 54000      
+
     if args.preload == True:
         print('loading code and label...')
         code_and_label = load_code_and_label(osp.join(config["output_path"], args.snapshot))
@@ -208,7 +191,8 @@ if __name__ == "__main__":
         print("saving ...")
         save_code_and_label(code_and_label, osp.join(config["output_path"], args.snapshot))
         print("saving done")
+    
     print(config["snapshot_path"])
     mAP = mean_average_precision(code_and_label, config["R"])
-    print ("MAP: "+ str(mAP))
+    print ("mAP: "+ str(mAP))
 
