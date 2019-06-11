@@ -160,27 +160,27 @@ if __name__ == "__main__":
     # train config  
     config = {}
     config["dataset"] = args.dataset
-    config["output_path"] = "../snapshot/"+config["dataset"]+"_"+str(args.hash_bit)+"bit_"+ \
+    config["output_path"] = "./snapshot/"+config["dataset"]+"_"+str(args.hash_bit)+"bit_"+ \
                             args.net+"_"+args.prefix
     config["snapshot_path"] = config["output_path"]+"/"+args.snapshot+"_model.pth.tar"
     sys.stdout = Logger(osp.join(config["output_path"], "test.log"))
 
     config["prep"] = {"test_10crop":False, "resize_size":256, "crop_size":224}
     if config["dataset"] == "imagenet":
-        config["data"] = {"database":{"list_path":"../data/imagenet/database.txt", "batch_size":16}, \
-                          "test":{"list_path":"../data/imagenet/test.txt", "batch_size":16}}
+        config["data"] = {"database":{"list_path":"./data/imagenet/database.txt", "batch_size":16}, \
+                          "test":{"list_path":"./data/imagenet/test.txt", "batch_size":16}}
         config["R"] = 1000
     elif config["dataset"] == "nus_wide":
-        config["data"] = {"database":{"list_path":"../data/nus_wide/database.txt", "batch_size":16}, \
-                          "test":{"list_path":"../data/nus_wide/test.txt", "batch_size":16}}
+        config["data"] = {"database":{"list_path":"./data/nus_wide/database.txt", "batch_size":16}, \
+                          "test":{"list_path":"./data/nus_wide/test.txt", "batch_size":16}}
         config["R"] = 5000
     elif config["dataset"] == "coco":
-        config["data"] = {"database":{"list_path":"../data/coco/database.txt", "batch_size":16}, \
-                          "test":{"list_path":"../data/coco/test.txt", "batch_size":16}}
+        config["data"] = {"database":{"list_path":"./data/coco/database.txt", "batch_size":16}, \
+                          "test":{"list_path":"./data/coco/test.txt", "batch_size":16}}
         config["R"] = 5000
     elif config["dataset"] == "cifar":
-        config["data"] = {"database":{"list_path":"../data/cifar/database.txt", "batch_size":16}, \
-                          "test":{"list_path":"../data/cifar/test.txt", "batch_size":16}}
+        config["data"] = {"database":{"list_path":"./data/cifar/database.txt", "batch_size":16}, \
+                          "test":{"list_path":"./data/cifar/test.txt", "batch_size":16}}
         config["R"] = 54000      
 
     if args.preload == True:

@@ -2,6 +2,7 @@ import sys
 import argparse
 import os
 import os.path as osp
+import shutil
 
 import numpy as np
 import torch
@@ -28,19 +29,17 @@ def train(config):
     ## set pre-process
     prep_dict = {}
     prep_config = config["prep"]
-    prep_dict["train_set"] = prep.image_train( \
-                                resize_size=prep_config["resize_size"], \
-                                crop_size=prep_config["crop_size"])
+    prep_dict["train"] = prep.image_train( \
+                            resize_size=prep_config["resize_size"], \
+                            crop_size=prep_config["crop_size"])
 
     ## prepare data
-    dsets = {}
-    dset_loaders = {}
-    data_config = config["data"]
-    dsets["train_set"] = ImageList(open(data_config["train_set"]["list_path"]).readlines(), \
-                                transform=prep_dict["train_set"])
-    dset_loaders["train_set"] = util_data.DataLoader(dsets["train_set"], \
-            batch_size=data_config["train_set"]["batch_size"], \
-            shuffle=True, num_workers=4)
+    train_data_config = config["data"]["train"]
+    train_set = ImageList(open(train_data_config["list_path"]).readlines(), \
+                    transform=prep_dict["train"])
+    train_loader = util_data.DataLoader(train_set, \
+                    batch_size=config["batch_size"], \
+                    shuffle=True, num_workers=4)
 
     ## set base network
     net_config = config["network"]
@@ -61,17 +60,19 @@ def train(config):
                 ** optimizer_config["lr_param"])
 
     ## tensorboardX
-    writer = SummaryWriter(logdir=osp.join(config["output_path"], "tflog"))
+    tflog_path = osp.join(config["output_path"], "tflog")
+    if os.path.exists(tflog_path):
+        shutil.rmtree(tflog_path)
+    writer = SummaryWriter(logdir=tflog_path)
     # writer.add_graph(base_network, input_to_model=(torch.rand(1, 3, 224, 224),))
     
     ## train
-    len_train = len(dset_loaders["train_set"]) - 1
     for i in range(config["num_iter"]):
         scheduler.step()
         optimizer.zero_grad()
 
-        if i % len_train == 0:
-            train_iter = iter(dset_loaders["train_set"])
+        if i % (len(train_loader)-1) == 0:
+            train_iter = iter(train_loader)
         inputs, labels = train_iter.next()
         if use_gpu:
             inputs, labels = Variable(inputs).cuda(), Variable(labels).cuda()
@@ -84,9 +85,9 @@ def train(config):
         similarity_loss.backward()
         optimizer.step()
 
-        writer.add_scalar('loss', similarity_loss, i)
-
-        if i % 100 == 0:
+        writer.add_scalars('data', {'loss': similarity_loss, 
+                                    'lr': optimizer.param_groups[0]['lr']}, i)
+        if i % 10 == 0:
             print("{} #train# Iter: {:05d}, loss: {:.3f}".format(
                 datetime.now(), i, similarity_loss.item()))
             
@@ -111,9 +112,10 @@ if __name__ == "__main__":
     config = {}
     config["num_iter"] = 10000
     config["snapshot_interval"] = 3000
+    config["batch_size"] = 36
     config["dataset"] = args.dataset
     config["hash_bit"] = args.hash_bit
-    config["output_path"] = "../snapshot/"+args.dataset+"_"+ \
+    config["output_path"] = "./snapshot/"+args.dataset+"_"+ \
                             str(args.hash_bit)+"bit_"+args.net+"_"+args.prefix
 
     config["prep"] = {"test_10crop":True, "resize_size":256, "crop_size":224}
@@ -136,13 +138,13 @@ if __name__ == "__main__":
 
     # dataset config
     if config["dataset"] == "imagenet":
-        config["data"] = {"train_set":{"list_path":"../data/imagenet/train.txt", "batch_size":36}}
+        config["data"] = {"train":{"list_path":"./data/imagenet/train.txt"}}
     elif config["dataset"] == "nus_wide":
-        config["data"] = {"train_set":{"list_path":"../data/nus_wide/train.txt", "batch_size":36}}
+        config["data"] = {"train":{"list_path":"./data/nus_wide/train.txt"}}
     elif config["dataset"] == "coco":
-        config["data"] = {"train_set":{"list_path":"../data/coco/train.txt", "batch_size":36}}
+        config["data"] = {"train":{"list_path":"./data/coco/train.txt"}}
     elif config["dataset"] == "cifar":
-        config["data"] = {"train_set":{"list_path":"../data/cifar/train.txt", "batch_size":36}}
+        config["data"] = {"train":{"list_path":"./data/cifar/train.txt"}}
     
     if not osp.exists(config["output_path"]):
         os.mkdir(config["output_path"])
