@@ -26,6 +26,12 @@ scheduler_dict = {"step": optim.lr_scheduler.StepLR}
 
 
 def train(config):
+    ## tensorboardX
+    tflog_path = osp.join(config["output_path"], "tflog")
+    if os.path.exists(tflog_path):
+        shutil.rmtree(tflog_path)
+    writer = SummaryWriter(logdir=tflog_path)
+
     ## set pre-process
     prep_dict = {}
     prep_config = config["prep"]
@@ -44,11 +50,12 @@ def train(config):
     ## set base network
     net_config = config["network"]
     base_network = net_config["type"](**net_config["params"])
+    writer.add_graph(base_network, input_to_model=(torch.rand(2, 3, 224, 224),))
     use_gpu = torch.cuda.is_available()
     if use_gpu:
         base_network = base_network.cuda()
-    base_network.train(True)
-                
+    base_network.train()
+        
     ## set optimizer and scheduler
     optimizer_config = config["optimizer"]
     lr = optimizer_config["optim_params"]["lr"]
@@ -59,13 +66,6 @@ def train(config):
     scheduler = scheduler_dict[optimizer_config["lr_type"]](optimizer, \
                 ** optimizer_config["lr_param"])
 
-    ## tensorboardX
-    tflog_path = osp.join(config["output_path"], "tflog")
-    if os.path.exists(tflog_path):
-        shutil.rmtree(tflog_path)
-    writer = SummaryWriter(logdir=tflog_path)
-    # writer.add_graph(base_network, input_to_model=(torch.rand(1, 3, 224, 224),))
-    
     ## train
     for i in range(config["num_iter"]):
         scheduler.step()
@@ -85,8 +85,8 @@ def train(config):
         similarity_loss.backward()
         optimizer.step()
 
-        writer.add_scalars('data', {'loss': similarity_loss, 
-                                    'lr': optimizer.param_groups[0]['lr']}, i)
+        writer.add_scalar('loss', similarity_loss, i)
+        writer.add_scalar('lr', optimizer.param_groups[0]['lr'], i)
         if i % 10 == 0:
             print("{} #train# Iter: {:05d}, loss: {:.3f}".format(
                 datetime.now(), i, similarity_loss.item()))
@@ -104,6 +104,7 @@ if __name__ == "__main__":
     parser.add_argument('--net', type=str, default='ResNet50', help="base network type")
     parser.add_argument('--prefix', type=str, default='hashnet', help="save path prefix")
     parser.add_argument('--lr', type=float, default=0.0003, help="learning rate")
+    parser.add_argument('--batch_size', type=int, default=36, help="training batch size")
     parser.add_argument('--class_num', type=float, default=1.0, help="positive negative pairs balance weight")
     args = parser.parse_args()
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
@@ -112,7 +113,7 @@ if __name__ == "__main__":
     config = {}
     config["num_iter"] = 10000
     config["snapshot_interval"] = 3000
-    config["batch_size"] = 36
+    config["batch_size"] = args.batch_size
     config["dataset"] = args.dataset
     config["hash_bit"] = args.hash_bit
     config["output_path"] = "./snapshot/"+args.dataset+"_"+ \

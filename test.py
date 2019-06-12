@@ -83,7 +83,6 @@ def code_predict(loader, model, name, test_10crop=True, gpu=True):
 
 
 def predict(config):
-    print('predicting...')
     ## set pre-process
     prep_dict = {}
     prep_config = config["prep"]
@@ -111,23 +110,23 @@ def predict(config):
             dsets["database"+str(i)] = ImageList(open(data_config["database"]["list_path"]).readlines(), \
                                 transform=prep_dict["database"]["val"+str(i)])
             dset_loaders["database"+str(i)] = util_data.DataLoader(dsets["database"+str(i)], \
-                                batch_size=data_config["database"]["batch_size"], \
+                                batch_size=config["batch_size"], \
                                 shuffle=False, num_workers=4)
             dsets["test"+str(i)] = ImageList(open(data_config["test"]["list_path"]).readlines(), \
                                 transform=prep_dict["test"]["val"+str(i)])
             dset_loaders["test"+str(i)] = util_data.DataLoader(dsets["test"+str(i)], \
-                                batch_size=data_config["test"]["batch_size"], \
+                                batch_size=config["batch_size"], \
                                 shuffle=False, num_workers=4)
     else:
         dsets["database"] = ImageList(open(data_config["database"]["list_path"]).readlines(), \
                                 transform=prep_dict["database"])
         dset_loaders["database"] = util_data.DataLoader(dsets["database"], \
-                                batch_size=data_config["database"]["batch_size"], \
+                                batch_size=config["batch_size"], \
                                 shuffle=False, num_workers=4)
         dsets["test"] = ImageList(open(data_config["test"]["list_path"]).readlines(), \
                                 transform=prep_dict["test"])
         dset_loaders["test"] = util_data.DataLoader(dsets["test"], \
-                                batch_size=data_config["test"]["batch_size"], \
+                                batch_size=config["batch_size"], \
                                 shuffle=False, num_workers=4)
     ## set base network
     base_network = torch.load(config["snapshot_path"])
@@ -152,6 +151,7 @@ if __name__ == "__main__":
     parser.add_argument('--net', type=str, default='ResNet50', help="base network type")
     parser.add_argument('--prefix', type=str, default='hashnet', help="save path prefix")
     parser.add_argument('--snapshot', type=str, default='iter_10000', help="model path prefix")
+    parser.add_argument('--batch_size', type=int, default=16, help="testing batch size")
     parser.add_argument('--preload', default=False, action='store_true')
 
     args = parser.parse_args()
@@ -159,6 +159,7 @@ if __name__ == "__main__":
 
     # train config  
     config = {}
+    config["batch_size"] = args.batch_size
     config["dataset"] = args.dataset
     config["output_path"] = "./snapshot/"+config["dataset"]+"_"+str(args.hash_bit)+"bit_"+ \
                             args.net+"_"+args.prefix
@@ -167,26 +168,27 @@ if __name__ == "__main__":
 
     config["prep"] = {"test_10crop":False, "resize_size":256, "crop_size":224}
     if config["dataset"] == "imagenet":
-        config["data"] = {"database":{"list_path":"./data/imagenet/database.txt", "batch_size":16}, \
-                          "test":{"list_path":"./data/imagenet/test.txt", "batch_size":16}}
+        config["data"] = {"database":{"list_path":"./data/imagenet/database.txt"}, \
+                          "test":{"list_path":"./data/imagenet/test.txt"}}
         config["R"] = 1000
     elif config["dataset"] == "nus_wide":
-        config["data"] = {"database":{"list_path":"./data/nus_wide/database.txt", "batch_size":16}, \
-                          "test":{"list_path":"./data/nus_wide/test.txt", "batch_size":16}}
+        config["data"] = {"database":{"list_path":"./data/nus_wide/database.txt"}, \
+                          "test":{"list_path":"./data/nus_wide/test.txt"}}
         config["R"] = 5000
     elif config["dataset"] == "coco":
-        config["data"] = {"database":{"list_path":"./data/coco/database.txt", "batch_size":16}, \
-                          "test":{"list_path":"./data/coco/test.txt", "batch_size":16}}
+        config["data"] = {"database":{"list_path":"./data/coco/database.txt"}, \
+                          "test":{"list_path":"./data/coco/test.txt"}}
         config["R"] = 5000
     elif config["dataset"] == "cifar":
-        config["data"] = {"database":{"list_path":"./data/cifar/database.txt", "batch_size":16}, \
-                          "test":{"list_path":"./data/cifar/test.txt", "batch_size":16}}
-        config["R"] = 54000      
+        config["data"] = {"database":{"list_path":"./data/cifar/database.txt"}, \
+                          "test":{"list_path":"./data/cifar/test.txt"}}
+        config["R"] = 54000
 
     if args.preload == True:
         print('loading code and label...')
         code_and_label = load_code_and_label(osp.join(config["output_path"], args.snapshot))
     else:
+        print("predicting ...")
         code_and_label = predict(config)
         print("saving ...")
         save_code_and_label(code_and_label, osp.join(config["output_path"], args.snapshot))
