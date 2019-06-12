@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+from util import distance
 
 
 def pairwise_loss(output, label, sigmoid_param=1.0, l_threshold=15.0, class_num=1.0):
@@ -48,16 +49,15 @@ def pairwise_loss_debug(output1, output2, label1, label2):
     return loss
 
 
-def contrastive_loss(output, label, margin=4, balanced=False):
+def contrastive_loss(output, label, margin=16):
     '''contrastive loss
     - Deep Supervised Hashing for Fast Image Retrieval
     '''
-    batch_size = u.shape[0]
-    S = torch.matmul(label, label.t())
-    dist = distance(u)
-    torch.max
-    loss_1 = S * dist + (1 - S) * tf.maximum(margin - dist, 0.0)
-    loss = tf.reduce_sum(loss_1) / (batch_size*(batch_size-1))
+    batch_size = output.shape[0]
+    S =  Variable(torch.mm(label.float(), label.float().t()))
+    dist = distance(output)
+    loss_1 = S * dist + (1 - S) * torch.max(margin - dist, torch.zeros_like(dist))
+    loss = torch.sum(loss_1) / (batch_size*(batch_size-1))
     return loss
 
 

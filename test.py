@@ -12,8 +12,7 @@ import network
 import loss
 import pre_process as prep
 from data_list import ImageList
-from util import Logger
-from evaluation import mean_average_precision
+from util import Logger, mean_average_precision
 
 
 def save_code_and_label(params, path):
@@ -87,19 +86,19 @@ def predict(config):
     prep_dict = {}
     prep_config = config["prep"]
     if prep_config["test_10crop"]:
-        prep_dict["database"] = prep.image_test_10crop( \
-                            resize_size=prep_config["resize_size"], \
-                            crop_size=prep_config["crop_size"])
-        prep_dict["test"] = prep.image_test_10crop( \
-                            resize_size=prep_config["resize_size"], \
-                            crop_size=prep_config["crop_size"])
+        prep_dict["database"] = prep.image_test_10crop(config['dataset'], \
+                                resize_size=prep_config["resize_size"], \
+                                crop_size=prep_config["crop_size"])
+        prep_dict["test"] = prep.image_test_10crop(config['dataset'], \
+                                resize_size=prep_config["resize_size"], \
+                                crop_size=prep_config["crop_size"])
     else:
-        prep_dict["database"] = prep.image_test( \
-                            resize_size=prep_config["resize_size"], \
-                            crop_size=prep_config["crop_size"])
-        prep_dict["test"] = prep.image_test( \
-                            resize_size=prep_config["resize_size"], \
-                            crop_size=prep_config["crop_size"])
+        prep_dict["database"] = prep.image_test(config['dataset'], \
+                                resize_size=prep_config["resize_size"], \
+                                crop_size=prep_config["crop_size"])
+        prep_dict["test"] = prep.image_test(config['dataset'], \
+                                resize_size=prep_config["resize_size"], \
+                                crop_size=prep_config["crop_size"])
                
     ## prepare data
     dsets = {}
@@ -147,8 +146,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Transfer Learning')
     parser.add_argument('--gpus', type=str, default='0', help="device id to run")
     parser.add_argument('--dataset', type=str, default='nus_wide', help="dataset name")
-    parser.add_argument('--hash_bit', type=int, default=48, help="number of hash code bits")
-    parser.add_argument('--net', type=str, default='ResNet50', help="base network type")
+    parser.add_argument('--hash_bit', type=int, default=32, help="number of hash code bits")
+    parser.add_argument('--net', type=str, default='AlexNet', help="base network type")
     parser.add_argument('--prefix', type=str, default='hashnet', help="save path prefix")
     parser.add_argument('--snapshot', type=str, default='iter_10000', help="model path prefix")
     parser.add_argument('--batch_size', type=int, default=16, help="testing batch size")

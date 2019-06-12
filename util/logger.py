@@ -12,5 +12,3 @@ class Logger(object):
         
     def flush(self):
         self.terminal.flush()
-
-
