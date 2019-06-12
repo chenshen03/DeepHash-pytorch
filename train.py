@@ -105,7 +105,7 @@ if __name__ == "__main__":
     parser.add_argument('--prefix', type=str, default='hashnet', help="save path prefix")
     parser.add_argument('--lr', type=float, default=0.0003, help="learning rate")
     parser.add_argument('--batch_size', type=int, default=64, help="training batch size")
-    parser.add_argument('--class_num', type=float, default=1.0, help="positive negative pairs balance weight")
+    parser.add_argument('--class_num', type=float, default=5.0, help="positive negative pairs balance weight")
     args = parser.parse_args()
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
 

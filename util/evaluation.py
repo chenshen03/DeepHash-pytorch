@@ -5,9 +5,9 @@ from torch.autograd import Variable
 
 
 def mean_average_precision(params, R):
-    database_code = params['database_code']
-    validation_code = params['test_code']
-    database_labels = params['database_labels']
+    database_code = params['db_codes']
+    database_labels = params['db_labels']
+    validation_code = params['test_codes']
     validation_labels = params['test_labels']
     query_num = validation_code.shape[0]
 

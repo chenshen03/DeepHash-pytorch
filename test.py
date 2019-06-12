@@ -16,23 +16,11 @@ from util import Logger, mean_average_precision
 
 
 def save_code_and_label(params, path):
-    database_code = params['database_code']
-    validation_code = params['test_code']
-    database_labels = params['database_labels']
-    validation_labels = params['test_labels']
-    np.save(path + "_database_code.npy", database_code)
-    np.save(path + "_database_labels.npy", database_labels)
-    np.save(path + "_test_code.npy", validation_code)
-    np.save(path + "_test_labels.npy", validation_labels)
+    np.save(path + "_code_and_label.npy", params)
 
 
 def load_code_and_label(path):
-    code_and_label = {}
-    code_and_label["database_code"] = np.load(path + "_database_code.npy")
-    code_and_label["database_labels"] = np.load(path + "_database_labels.npy")
-    code_and_label["test_code"] = np.load(path + "_test_code.npy")
-    code_and_label["test_labels"] = np.load(path + "_test_labels.npy")
-    return code_and_label
+    return np.load(path + "_code_and_label.npy").item()
 
         
 def code_predict(loader, model, name, test_10crop=True, gpu=True):
@@ -78,7 +66,7 @@ def code_predict(loader, model, name, test_10crop=True, gpu=True):
             else:
                 all_output = torch.cat((all_output, outputs.data.cpu().float()), 0)
                 all_label = torch.cat((all_label, labels.float()), 0)
-    return torch.sign(all_output), all_label
+    return all_output, torch.sign(all_output), all_label
 
 
 def predict(config):
@@ -135,11 +123,13 @@ def predict(config):
         base_network = base_network.cuda()
 
     base_network.eval()
-    database_codes, database_labels = code_predict(dset_loaders, base_network, "database", test_10crop=prep_config["test_10crop"], gpu=use_gpu)
-    test_codes, test_labels = code_predict(dset_loaders, base_network, "test", test_10crop=prep_config["test_10crop"], gpu=use_gpu)
+    db_feats, db_codes, db_labels = code_predict(dset_loaders, base_network, "database", 
+                                                        test_10crop=prep_config["test_10crop"], gpu=use_gpu)
+    test_feats, test_codes, test_labels = code_predict(dset_loaders, base_network, "test", 
+                                                        test_10crop=prep_config["test_10crop"], gpu=use_gpu)
 
-    return {"database_code":database_codes.numpy(), "database_labels":database_labels.numpy(), \
-            "test_code":test_codes.numpy(), "test_labels":test_labels.numpy()}
+    return {"db_feats":db_feats.numpy(), "db_codes":db_codes.numpy(), "db_labels":db_labels.numpy(), \
+            "test_feats":test_feats, "test_codes":test_codes.numpy(), "test_labels":test_labels.numpy()}
 
 
 if __name__ == "__main__":
@@ -187,9 +177,9 @@ if __name__ == "__main__":
         print('loading code and label...')
         code_and_label = load_code_and_label(osp.join(config["output_path"], args.snapshot))
     else:
-        print("predicting ...")
+        print("testing ...")
         code_and_label = predict(config)
-        print("saving ...")
+        print("saving code and label ...")
         save_code_and_label(code_and_label, osp.join(config["output_path"], args.snapshot))
         print("saving done")
     
