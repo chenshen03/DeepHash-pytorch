@@ -23,7 +23,7 @@ def load_code_and_label(path):
     return np.load(path + "_code_and_label.npy").item()
 
         
-def code_predict(loader, model, name, test_10crop=True, gpu=True):
+def code_predict(loader, model, name, test_10crop=True, device=torch.device('cuda')):
     start_test = True
     if test_10crop:
         iter_test = [iter(loader[name+str(i)]) for i in range(10)]
@@ -31,12 +31,9 @@ def code_predict(loader, model, name, test_10crop=True, gpu=True):
             data = [iter_test[j].next() for j in range(10)]
             inputs = [data[j][0] for j in range(10)]
             labels = data[0][1]
-            if gpu:
-                for j in range(10):
-                    inputs[j] = Variable(inputs[j].cuda())
-            else:
-                for j in range(10):
-                    inputs[j] = Variable(inputs[j])
+            for j in range(10):
+                inputs[j] = inputs[j].to(device)
+
             outputs = []
             for j in range(10):
                 outputs.append(model(inputs[j]))
@@ -54,10 +51,8 @@ def code_predict(loader, model, name, test_10crop=True, gpu=True):
             data = iter_val.next()
             inputs = data[0]
             labels = data[1]
-            if gpu:
-                inputs = Variable(inputs.cuda())
-            else:
-                inputs = Variable(inputs)
+            inputs = inputs.to(device)
+
             outputs = model(inputs)
             if start_test:
                 all_output = outputs.data.cpu().float()
@@ -115,21 +110,20 @@ def predict(config):
         dset_loaders["test"] = util_data.DataLoader(dsets["test"], \
                                 batch_size=config["batch_size"], \
                                 shuffle=False, num_workers=4)
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ## set base network
     base_network = torch.load(config["snapshot_path"])
-
-    use_gpu = torch.cuda.is_available()
-    if use_gpu:
-        base_network = base_network.cuda()
-
+    base_network = base_network.to(device)
     base_network.eval()
+
     db_feats, db_codes, db_labels = code_predict(dset_loaders, base_network, "database", 
-                                                        test_10crop=prep_config["test_10crop"], gpu=use_gpu)
+                                                        test_10crop=prep_config["test_10crop"], device=device)
     test_feats, test_codes, test_labels = code_predict(dset_loaders, base_network, "test", 
-                                                        test_10crop=prep_config["test_10crop"], gpu=use_gpu)
+                                                        test_10crop=prep_config["test_10crop"], device=device)
 
     return {"db_feats":db_feats.numpy(), "db_codes":db_codes.numpy(), "db_labels":db_labels.numpy(), \
-            "test_feats":test_feats, "test_codes":test_codes.numpy(), "test_labels":test_labels.numpy()}
+            "test_feats":test_feats.numpy(), "test_codes":test_codes.numpy(), "test_labels":test_labels.numpy()}
 
 
 if __name__ == "__main__":
@@ -184,6 +178,14 @@ if __name__ == "__main__":
         print("saving done")
     
     print(config["snapshot_path"])
-    mAP = mean_average_precision(code_and_label, config["R"])
-    print ("mAP: "+ str(mAP))
+
+    db_feats = code_and_label['db_feats']
+    db_codes = code_and_label['db_codes']
+    db_labels = code_and_label['db_labels']
+    test_feats = code_and_label['test_feats']
+    test_codes = code_and_label['test_codes']
+    test_labels = code_and_label['test_labels']
+    mAP = mean_average_precision(db_codes, db_labels, test_codes, test_labels, config["R"])
+    mAP_feat = mean_average_precision(db_feats, db_labels, test_feats, test_labels, config["R"])
+    print(f"mAP: {mAP}\nmAP with feats: {mAP_feat}")
 

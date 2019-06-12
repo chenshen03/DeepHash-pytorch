@@ -47,13 +47,12 @@ def train(config):
                     batch_size=config["batch_size"], \
                     shuffle=True, num_workers=4)
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ## set base network
     net_config = config["network"]
     base_network = net_config["type"](**net_config["params"])
     writer.add_graph(base_network, input_to_model=(torch.rand(2, 3, 224, 224),))
-    use_gpu = torch.cuda.is_available()
-    if use_gpu:
-        base_network = base_network.cuda()
+    base_network.to(device)
     base_network.train()
         
     ## set optimizer and scheduler
@@ -74,22 +73,21 @@ def train(config):
         if i % (len(train_loader)-1) == 0:
             train_iter = iter(train_loader)
         inputs, labels = train_iter.next()
-        if use_gpu:
-            inputs, labels = Variable(inputs).cuda(), Variable(labels).cuda()
-        else:
-            inputs, labels = Variable(inputs), Variable(labels)
+        inputs, labels = inputs.to(device), labels.to(device)
            
         outputs = base_network(inputs)
-        similarity_loss = loss.pairwise_loss(outputs, labels, **config["loss"])
-
-        similarity_loss.backward()
+        s_loss = loss.pairwise_loss(outputs, labels, **config["loss"])
+        q_loss = loss.quantization_loss(outputs)
+        total_loss = s_loss + 0.001 * q_loss
+        total_loss.backward()
         optimizer.step()
 
-        writer.add_scalar('loss', similarity_loss, i)
+        writer.add_scalar('similarity loss', s_loss, i)
+        writer.add_scalar('quantization loss', q_loss, i)
         writer.add_scalar('lr', optimizer.param_groups[0]['lr'], i)
         if i % 10 == 0:
-            print("{} #train# Iter: {:05d}, loss: {:.3f}".format(
-                datetime.now(), i, similarity_loss.item()))
+            print("{} #train# Iter: {:05d}, loss: {:.3f} quantizaion loss: {:.3f}".format(
+                datetime.now(), i, s_loss.item(), q_loss.item()))
             
     writer.close()
     torch.save(nn.Sequential(base_network), osp.join(config["output_path"], \

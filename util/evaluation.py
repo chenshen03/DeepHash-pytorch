@@ -4,22 +4,17 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 
-def mean_average_precision(params, R):
-    database_code = params['db_codes']
-    database_labels = params['db_labels']
-    validation_code = params['test_codes']
-    validation_labels = params['test_labels']
-    query_num = validation_code.shape[0]
-
-    sim = np.dot(database_code, validation_code.T)
+def mean_average_precision(db_codes, db_labels, test_codes, test_labels, R):
+    query_num = test_codes.shape[0]
+    sim = np.dot(db_codes, test_codes.T)
     ids = np.argsort(-sim, axis=0)
     APx = []
     
     for i in range(query_num):
-        label = validation_labels[i, :]
+        label = test_labels[i, :]
         label[label == 0] = -1
         idx = ids[:, i]
-        imatch = np.sum(database_labels[idx[0:R], :] == label, axis=1) > 0
+        imatch = np.sum(db_labels[idx[0:R], :] == label, axis=1) > 0
         relevant_num = np.sum(imatch)
         Lx = np.cumsum(imatch)
         Px = Lx.astype(float) / np.arange(1, R+1, 1)
