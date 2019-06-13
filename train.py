@@ -77,8 +77,8 @@ def train(config):
            
         outputs = base_network(inputs)
         s_loss = loss.pairwise_loss(outputs, labels, **config["loss"])
-        q_loss = loss.quantization_loss(outputs)
-        total_loss = s_loss + 0.001 * q_loss
+        q_loss = 0.1 * loss.quantization_loss(outputs)
+        total_loss = s_loss + q_loss
         total_loss.backward()
         optimizer.step()
 

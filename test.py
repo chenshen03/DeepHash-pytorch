@@ -12,7 +12,8 @@ import network
 import loss
 import pre_process as prep
 from data_list import ImageList
-from util import Logger, mean_average_precision
+from pprint import pprint
+from util import Logger, get_mAP, plot_distribution, plot_tsne
 
 
 def save_code_and_label(params, path):
@@ -167,25 +168,29 @@ if __name__ == "__main__":
                           "test":{"list_path":"./data/cifar/test.txt"}}
         config["R"] = 54000
 
+    print("test start")
+    pprint(config)
     if args.preload == True:
-        print('loading code and label...')
+        print("loading code and label ...")
         code_and_label = load_code_and_label(osp.join(config["output_path"], args.snapshot))
     else:
-        print("testing ...")
+        print("calculating code and label ...")
         code_and_label = predict(config)
         print("saving code and label ...")
         save_code_and_label(code_and_label, osp.join(config["output_path"], args.snapshot))
         print("saving done")
     
-    print(config["snapshot_path"])
-
     db_feats = code_and_label['db_feats']
     db_codes = code_and_label['db_codes']
     db_labels = code_and_label['db_labels']
     test_feats = code_and_label['test_feats']
     test_codes = code_and_label['test_codes']
     test_labels = code_and_label['test_labels']
-    mAP = mean_average_precision(db_codes, db_labels, test_codes, test_labels, config["R"])
-    mAP_feat = mean_average_precision(db_feats, db_labels, test_feats, test_labels, config["R"])
-    print(f"mAP: {mAP}\nmAP with feats: {mAP_feat}")
+    mAP = get_mAP(db_codes, db_labels, test_codes, test_labels, config["R"])
+    mAP_feat = get_mAP(db_feats, db_labels, test_feats, test_labels, config["R"])
+    print(f"mAP@codes: {mAP}\nmAP@feats: {mAP_feat}")
+    print("visualizing data ...")
+    plot_distribution(db_feats, config["output_path"])
+    plot_tsne(db_codes, db_labels, config["output_path"])
 
+    print("test finished")

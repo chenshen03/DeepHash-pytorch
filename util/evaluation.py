@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 
-def mean_average_precision(db_codes, db_labels, test_codes, test_labels, R):
+def get_mAP(db_codes, db_labels, test_codes, test_labels, R):
     query_num = test_codes.shape[0]
     sim = np.dot(db_codes, test_codes.T)
     ids = np.argsort(-sim, axis=0)
