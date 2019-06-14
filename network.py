@@ -8,7 +8,7 @@ import math
 
 
 class AlexNetFc(nn.Module):
-    def __init__(self, hash_bit, use_hashnet=None):
+    def __init__(self, hash_bit, use_hashnet=False):
         super(AlexNetFc, self).__init__()
         model_alexnet = models.alexnet(pretrained=True)
         self.features = model_alexnet.features
@@ -37,9 +37,11 @@ class AlexNetFc(nn.Module):
         x = x.view(x.size(0), 256*6*6)
         x = self.classifier(x)
         y = self.hash_layer(x)
-        if self.iter_num % self.step_size==0:
+        if self.use_hashnet and self.iter_num % self.step_size==0:
             self.scale = self.init_scale * (math.pow((1.+self.gamma*self.iter_num), self.power))
-        y = self.activation(self.scale*y)
+            if self.training:
+                print(f"tanh scale change to {self.scale:.5f}")
+        y = self.activation(y)
         return y
 
     def output_num(self):
@@ -48,7 +50,7 @@ class AlexNetFc(nn.Module):
 
 resnet_dict = {"ResNet18":models.resnet18, "ResNet34":models.resnet34, "ResNet50":models.resnet50, "ResNet101":models.resnet101, "ResNet152":models.resnet152} 
 class ResNetFc(nn.Module):
-    def __init__(self, name, hash_bit):
+    def __init__(self, name, hash_bit, use_hashnet=False):
         super(ResNetFc, self).__init__()
         model_resnet = resnet_dict[name](pretrained=True)
         self.conv1 = model_resnet.conv1
@@ -63,6 +65,7 @@ class ResNetFc(nn.Module):
         self.feature_layers = nn.Sequential(self.conv1, self.bn1, self.relu, self.maxpool, \
                             self.layer1, self.layer2, self.layer3, self.layer4, self.avgpool)
 
+        self.use_hashnet = use_hashnet
         self.hash_layer = nn.Linear(model_resnet.fc.in_features, hash_bit)
         self.hash_layer.weight.data.normal_(0, 0.01)
         self.hash_layer.bias.data.fill_(0.0)
@@ -81,8 +84,10 @@ class ResNetFc(nn.Module):
         x = self.feature_layers(x)
         x = x.view(x.size(0), -1)
         y = self.hash_layer(x)
-        if self.iter_num % self.step_size==0:
+        if self.use_hashnet and self.iter_num % self.step_size==0:
             self.scale = self.init_scale * (math.pow((1.+self.gamma*self.iter_num), self.power))
+            if self.training:
+                print(f"tanh scale change to {self.scale:.5f}")
         y = self.activation(self.scale*y)
         return y
 
@@ -92,7 +97,7 @@ class ResNetFc(nn.Module):
 
 vgg_dict = {"VGG11":models.vgg11, "VGG13":models.vgg13, "VGG16":models.vgg16, "VGG19":models.vgg19, "VGG11BN":models.vgg11_bn, "VGG13BN":models.vgg13_bn, "VGG16BN":models.vgg16_bn, "VGG19BN":models.vgg19_bn} 
 class VGGFc(nn.Module):
-    def __init__(self, name, hash_bit):
+    def __init__(self, name, hash_bit, use_hashnet=False):
         super(VGGFc, self).__init__()
         model_vgg = vgg_dict[name](pretrained=True)
         self.features = model_vgg.features
@@ -121,8 +126,10 @@ class VGGFc(nn.Module):
         x = x.view(x.size(0), 25088)
         x = self.classifier(x)
         y = self.hash_layer(x)
-        if self.iter_num % self.step_size==0:
+        if self.use_hashnet and self.iter_num % self.step_size==0:
             self.scale = self.init_scale * (math.pow((1.+self.gamma*self.iter_num), self.power))
+            if self.training:
+                print(f"tanh scale change to {self.scale:.5f}")
         y = self.activation(self.scale*y)
         return y
 

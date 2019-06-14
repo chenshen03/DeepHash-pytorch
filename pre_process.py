@@ -160,9 +160,13 @@ def image_test_10crop(dataset=None, resize_size=256, crop_size=224):
 def image_train_cifar(resize_size=256, crop_size=224):
     normalize = transforms.Normalize(mean=[0.4914, 0.4822, 0.4465],
                                     std=[0.2023, 0.1994, 0.2010])
+    # normalize = transforms.Normalize(mean=[103.939, 116.779, 123.68],
+    #                                 std=[1, 1, 1])
+                                    
     return  transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
+        ResizeImage(resize_size),
         transforms.RandomHorizontalFlip(),
+        transforms.RandomResizedCrop(crop_size),
         transforms.ToTensor(),
         normalize
     ])
@@ -170,7 +174,11 @@ def image_train_cifar(resize_size=256, crop_size=224):
 def image_test_cifar(resize_size=256, crop_size=224):
     normalize = transforms.Normalize(mean=[0.4914, 0.4822, 0.4465],
                                     std=[0.2023, 0.1994, 0.2010])
+    # normalize = transforms.Normalize(mean=[103.939, 116.779, 123.68],
+    #                                 std=[1, 1, 1])
+    
     return  transforms.Compose([
+            ResizeImage(resize_size),
             transforms.ToTensor(),
             normalize
         ])

@@ -118,7 +118,7 @@ if __name__ == "__main__":
                             str(args.hash_bit)+"bit_"+args.net+"_"+args.prefix
 
     config["prep"] = {"test_10crop":True, "resize_size":256, "crop_size":224}
-    config["loss"] = {"l_threshold":15.0, "sigmoid_param":10./args.hash_bit, "class_num":args.class_num}
+    config["loss"] = {"l_threshold":15.0, "alpha":5, "class_num":args.class_num}
     config["optimizer"] = {"type":"SGD", "optim_params":{"lr":args.lr, "momentum":0.9, \
                             "weight_decay":0.0005, "nesterov":True}, 
                            "lr_type":"step", "lr_param":{"step_size":2000, "gamma":0.5} }
