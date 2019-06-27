@@ -14,11 +14,15 @@ from tensorboardX import SummaryWriter
 
 import network
 import loss
-import pre_process as prep
-from data_list import ImageList
+import preprocess as prep
+from datalist import ImageList
 from util import Logger
 from pprint import pprint
 from datetime import datetime
+
+# https://github.com/microsoft/ptvsd/issues/943#issuecomment-480782087
+import multiprocessing
+multiprocessing.set_start_method('spawn', True)
 
 
 optim_dict = {"SGD": optim.SGD, "Adam": optim.Adam}
@@ -35,7 +39,7 @@ def train(config):
     ## set pre-process
     prep_dict = {}
     prep_config = config["prep"]
-    prep_dict["train"] = prep.image_train(config['dataset'], \
+    prep_dict["train"] = prep.image_train(
                             resize_size=prep_config["resize_size"], \
                             crop_size=prep_config["crop_size"])
 
@@ -74,11 +78,11 @@ def train(config):
             train_iter = iter(train_loader)
         inputs, labels = train_iter.next()
         inputs, labels = inputs.to(device), labels.to(device)
-           
+
         outputs = base_network(inputs)
         s_loss = loss.pairwise_loss(outputs, labels, **config["loss"])
-        q_loss = 0.1 * loss.quantization_loss(outputs)
-        total_loss = s_loss + q_loss
+        q_loss = loss.quantization_loss(outputs)
+        total_loss = s_loss + 0.01 * q_loss
         total_loss.backward()
         optimizer.step()
 
@@ -97,12 +101,13 @@ def train(config):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='HashNet')
     parser.add_argument('--gpus', type=str, default='0', help="device id to run")
-    parser.add_argument('--dataset', type=str, default='nus_wide', help="dataset name")
+    parser.add_argument('--dataset', type=str, default='cifar', help="dataset name")
     parser.add_argument('--hash_bit', type=int, default=32, help="number of hash code bits")
     parser.add_argument('--net', type=str, default='AlexNet', help="base network type")
-    parser.add_argument('--prefix', type=str, default='hashnet', help="save path prefix")
-    parser.add_argument('--lr', type=float, default=0.0003, help="learning rate")
-    parser.add_argument('--batch_size', type=int, default=64, help="training batch size")
+    parser.add_argument('--prefix', type=str, default='debug', help="save path prefix")
+    parser.add_argument('--lr', type=float, default=0.0005, help="learning rate")
+    parser.add_argument('--batch_size', type=int, default=128, help="training batch size")
+    parser.add_argument('--alpha', type=float, default=10.0, help="loss parameter")
     parser.add_argument('--class_num', type=float, default=5.0, help="positive negative pairs balance weight")
     args = parser.parse_args()
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
@@ -118,10 +123,10 @@ if __name__ == "__main__":
                             str(args.hash_bit)+"bit_"+args.net+"_"+args.prefix
 
     config["prep"] = {"test_10crop":True, "resize_size":256, "crop_size":224}
-    config["loss"] = {"l_threshold":15.0, "alpha":5, "class_num":args.class_num}
+    config["loss"] = {"l_threshold":15.0, "alpha":args.alpha, "class_num":args.class_num}
     config["optimizer"] = {"type":"SGD", "optim_params":{"lr":args.lr, "momentum":0.9, \
                             "weight_decay":0.0005, "nesterov":True}, 
-                           "lr_type":"step", "lr_param":{"step_size":2000, "gamma":0.5} }
+                           "lr_type":"step", "lr_param":{"step_size":3000, "gamma":0.5} }
 
     # network config
     config["network"] = {}

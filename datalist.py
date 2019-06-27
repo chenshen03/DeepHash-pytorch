@@ -1,13 +1,8 @@
 #from __future__ import print_function, division
 
-import torch
 import numpy as np
-from sklearn.preprocessing import StandardScaler
-import random
 from PIL import Image
-import torch.utils.data as data
-import os
-import os.path
+
 
 def make_dataset(image_list, labels):
     if labels:
@@ -96,4 +91,3 @@ class ImageList(object):
 
     def __len__(self):
         return len(self.imgs)
-

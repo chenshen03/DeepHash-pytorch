@@ -10,10 +10,12 @@ from torch.autograd import Variable
 
 import network
 import loss
-import pre_process as prep
-from data_list import ImageList
+import preprocess as prep
+from datalist import ImageList
 from pprint import pprint
-from util import Logger, get_mAP, plot_distribution, plot_tsne
+from util import Logger
+from util.evaluation import get_mAP
+from util.visualize import *
 
 
 def save_code_and_label(params, path):
@@ -70,17 +72,17 @@ def predict(config):
     prep_dict = {}
     prep_config = config["prep"]
     if prep_config["test_10crop"]:
-        prep_dict["database"] = prep.image_test_10crop(config['dataset'], \
+        prep_dict["database"] = prep.image_test_10crop(
                                 resize_size=prep_config["resize_size"], \
                                 crop_size=prep_config["crop_size"])
-        prep_dict["test"] = prep.image_test_10crop(config['dataset'], \
+        prep_dict["test"] = prep.image_test_10crop(
                                 resize_size=prep_config["resize_size"], \
                                 crop_size=prep_config["crop_size"])
     else:
-        prep_dict["database"] = prep.image_test(config['dataset'], \
+        prep_dict["database"] = prep.image_test(
                                 resize_size=prep_config["resize_size"], \
                                 crop_size=prep_config["crop_size"])
-        prep_dict["test"] = prep.image_test(config['dataset'], \
+        prep_dict["test"] = prep.image_test(
                                 resize_size=prep_config["resize_size"], \
                                 crop_size=prep_config["crop_size"])
                
@@ -186,11 +188,12 @@ if __name__ == "__main__":
     test_feats = code_and_label['test_feats']
     test_codes = code_and_label['test_codes']
     test_labels = code_and_label['test_labels']
-    mAP = get_mAP(db_codes, db_labels, test_codes, test_labels, config["R"])
     mAP_feat = get_mAP(db_feats, db_labels, test_feats, test_labels, config["R"])
-    print(f"mAP@codes: {mAP}\nmAP@feats: {mAP_feat}")
+    mAP = get_mAP(db_codes, db_labels, test_codes, test_labels, config["R"])
+    print(f"mAP@feats: {mAP_feat}\nmAP@codes: {mAP}")
     print("visualizing data ...")
     plot_distribution(db_feats, config["output_path"])
+    plot_distance(db_feats, db_labels, test_feats, test_labels, config["output_path"])
     plot_tsne(db_codes, db_labels, config["output_path"])
 
     print("test finished")

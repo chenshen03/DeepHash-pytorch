@@ -1,9 +1,6 @@
-import numpy as np
+from PIL import Image
 from torchvision import transforms
-import os
-from PIL import Image, ImageOps
-import numbers
-import torch
+
 
 class ResizeImage():
     def __init__(self, size):
@@ -55,39 +52,54 @@ class ForceFlip(object):
         """
         return img.transpose(Image.FLIP_LEFT_RIGHT)
 
-def image_train(dataset=None, resize_size=256, crop_size=224):
-    if dataset == 'cifar':
-        return image_train_cifar(resize_size, crop_size)
-    else:
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                        std=[0.229, 0.224, 0.225])
-        return  transforms.Compose([
-            ResizeImage(resize_size),
-            transforms.RandomResizedCrop(crop_size),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            normalize
-        ])
 
-def image_test(dataset=None, resize_size=256, crop_size=224):
-    if dataset == 'cifar':
-        return image_test_cifar(resize_size, crop_size)
-    else:
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                        std=[0.229, 0.224, 0.225])
-        #ten crops for image when validation, input the data_transforms dictionary
-        start_first = 0
-        start_center = (resize_size - crop_size - 1) / 2
-        start_last = resize_size - crop_size - 1
+def image_train(resize_size=256, crop_size=224):
+    return  transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
 
-        return transforms.Compose([
-            ResizeImage(resize_size),
-            PlaceCrop(crop_size, start_center, start_center),
-            transforms.ToTensor(),
-            normalize
-        ])
 
-def image_test_10crop(dataset=None, resize_size=256, crop_size=224):
+def image_test(resize_size=256, crop_size=224):
+    return  transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+
+
+# def image_train(resize_size=256, crop_size=224):
+#     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+#                                     std=[0.229, 0.224, 0.225])
+#     return  transforms.Compose([
+#         ResizeImage(resize_size),
+#         transforms.RandomResizedCrop(crop_size),
+#         transforms.RandomHorizontalFlip(),
+#         transforms.ToTensor(),
+#         normalize
+#     ])
+
+
+# def image_test(resize_size=256, crop_size=224):
+#     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+#                                     std=[0.229, 0.224, 0.225])
+#     #ten crops for image when validation, input the data_transforms dictionary
+#     start_first = 0
+#     start_center = (resize_size - crop_size - 1) / 2
+#     start_last = resize_size - crop_size - 1
+
+#     return transforms.Compose([
+#         ResizeImage(resize_size),
+#         PlaceCrop(crop_size, start_center, start_center),
+#         transforms.ToTensor(),
+#         normalize
+#     ])
+
+
+def image_test_10crop(resize_size=256, crop_size=224):
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                     std=[0.229, 0.224, 0.225])
     #ten crops for image when validation, input the data_transforms dictionary
@@ -157,12 +169,12 @@ def image_test_10crop(dataset=None, resize_size=256, crop_size=224):
     ])
     return data_transforms
 
+
+# cifar_normalize = transforms.Normalize(mean=[103.939/255, 116.779/255, 123.68/255],
+#                                        std=[1/255, 1/255, 1/255])
 def image_train_cifar(resize_size=256, crop_size=224):
     normalize = transforms.Normalize(mean=[0.4914, 0.4822, 0.4465],
-                                    std=[0.2023, 0.1994, 0.2010])
-    # normalize = transforms.Normalize(mean=[103.939, 116.779, 123.68],
-    #                                 std=[1, 1, 1])
-                                    
+                                     std=[0.2023, 0.1994, 0.2010])
     return  transforms.Compose([
         ResizeImage(resize_size),
         transforms.RandomHorizontalFlip(),
@@ -171,14 +183,16 @@ def image_train_cifar(resize_size=256, crop_size=224):
         normalize
     ])
 
+
 def image_test_cifar(resize_size=256, crop_size=224):
     normalize = transforms.Normalize(mean=[0.4914, 0.4822, 0.4465],
-                                    std=[0.2023, 0.1994, 0.2010])
-    # normalize = transforms.Normalize(mean=[103.939, 116.779, 123.68],
-    #                                 std=[1, 1, 1])
-    
+                                     std=[0.2023, 0.1994, 0.2010])
+    start_first = 0
+    start_center = (resize_size - crop_size - 1) / 2
+    start_last = resize_size - crop_size - 1
     return  transforms.Compose([
             ResizeImage(resize_size),
+            PlaceCrop(crop_size, start_center, start_center),
             transforms.ToTensor(),
             normalize
         ])

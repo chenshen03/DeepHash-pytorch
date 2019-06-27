@@ -1,10 +1,7 @@
-import numpy as np
-import torch
+import math
 import torch.nn as nn
-import torchvision
 from torchvision import models
 from torch.autograd import Variable
-import math
 
 
 class AlexNetFc(nn.Module):

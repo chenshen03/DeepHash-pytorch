@@ -1,9 +1,10 @@
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn import manifold
-from scipy.spatial import distance
 import torch
 import torch.optim as optim
+from sklearn import manifold
+from scipy.spatial import distance
 
 
 def plot_distribution(data, path):
@@ -15,6 +16,37 @@ def plot_distribution(data, path):
         commutes.plot.hist(grid=True, bins=200, rwidth=0.9, color='#607c8e');
         plt.title(f'{i}bit')
     plt.savefig(f"{path}/data_distribution.png")
+
+
+def plot_distance(db_feats, db_label, query_feats, query_label, path):
+    S = np.matmul(db_label, query_label.transpose())
+    N = np.sum(S==1)
+
+    plt.figure(figsize=[16, 6])
+    plt.subplot(121)
+    cosine_32bit = distance.cdist(db_feats, query_feats, metric='cosine') / 2
+    plt.title('cosine distribution')
+    commutes = pd.Series(np.hstack((np.random.choice(cosine_32bit[S==1].flatten(), N), \
+                                    np.random.choice(cosine_32bit[S==0].flatten(), N))))
+    commutes.plot.hist(grid=True, bins=200, rwidth=0.9, color='#607c8e');
+    plt.subplot(122)
+    euclidean_32bit = distance.cdist(db_feats, query_feats, metric='euclidean')
+    plt.title('euclidean distribution')
+    commutes = pd.Series(np.hstack((np.random.choice(euclidean_32bit[S==1].flatten(), N), \
+                                    np.random.choice(euclidean_32bit[S==0].flatten(), N))))
+    commutes.plot.hist(grid=True, bins=200, rwidth=0.9, color='#607c8e');
+    plt.savefig(f"{path}/distance_distribution.png")
+
+    plt.figure(figsize=[16, 6])
+    plt.subplot(121)
+    plt.title('cosine similar distribution')
+    commutes = pd.Series(cosine_32bit[S==1].flatten())
+    commutes.plot.hist(grid=True, bins=200, rwidth=0.9, color='#607c8e');
+    plt.subplot(122)
+    plt.title('cosine dissimilar distribution')
+    commutes = pd.Series(cosine_32bit[S==0].flatten())
+    commutes.plot.hist(grid=True, bins=200, rwidth=0.9, color='#607c8e');
+    plt.savefig(f"{path}/similarity_distribution.png")
 
 
 def plot_tsne(data, label, path, R=2000):
