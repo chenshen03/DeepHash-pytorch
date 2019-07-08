@@ -42,7 +42,7 @@ def image_classification_predict(loader, model, test_10crop=True, gpu=True, soft
                 labels = Variable(labels)
             outputs = []
             for j in range(9):
-                _, predict_out = model(inputs[j])
+                predict_out = model(inputs[j])
                 outputs.append(nn.Softmax()(softmax_param * predict_out))
             outputs_center = model(inputs[9])
             outputs.append(nn.Softmax()(softmax_param * outputs_center))
@@ -62,11 +62,12 @@ def image_classification_predict(loader, model, test_10crop=True, gpu=True, soft
         for i in range(len(loader['test'])):
             data = iter_val.next()
             inputs = data[0]
+            labels = data[1]
             if gpu:
                 inputs = Variable(inputs.cuda())
             else:
                 inputs = Variable(inputs)
-            _, outputs = model(inputs)
+            outputs = model(inputs)
             softmax_outputs = nn.Softmax()(softmax_param * outputs)
             if start_test:
                 all_output = outputs.data.cpu().float()
@@ -77,8 +78,8 @@ def image_classification_predict(loader, model, test_10crop=True, gpu=True, soft
                 all_output = torch.cat((all_output, outputs.data.cpu().float()), 0)
                 all_softmax_output = torch.cat((all_softmax_output, softmax_outputs.data.cpu().float()), 0)
                 all_label = torch.cat((all_label, labels.data.float()), 0)
-    _, predict = torch.max(all_output, 1)
-    return all_softmax_output, predict, all_output, all_label
+    _, pred = torch.max(all_output, 1)
+    return all_softmax_output, pred, all_output, all_label
 
 
 def image_classification_test(loader, model, test_10crop=True, gpu=True):
@@ -99,7 +100,7 @@ def image_classification_test(loader, model, test_10crop=True, gpu=True):
                 labels = Variable(labels)
             outputs = []
             for j in range(10):
-                _, predict_out = model(inputs[j])
+                predict_out = model(inputs[j])
                 outputs.append(nn.Softmax()(predict_out))
             outputs = sum(outputs)
             if start_test:
@@ -121,7 +122,7 @@ def image_classification_test(loader, model, test_10crop=True, gpu=True):
             else:
                 inputs = Variable(inputs)
                 labels = Variable(labels)
-            _, outputs = model(inputs)
+            outputs = model(inputs)
             if start_test:
                 all_output = outputs.data.float()
                 all_label = labels.data.float()
@@ -129,6 +130,6 @@ def image_classification_test(loader, model, test_10crop=True, gpu=True):
             else:
                 all_output = torch.cat((all_output, outputs.data.float()), 0)
                 all_label = torch.cat((all_label, labels.data.float()), 0)       
-    _, predict = torch.max(all_output, 1)
-    accuracy = torch.sum(torch.squeeze(predict).float() == all_label) / float(all_label.size()[0])
+    _, pred = torch.max(all_output, 1)
+    accuracy = float(torch.sum(torch.squeeze(pred) == torch.argmax(all_label, dim=1))) / float(all_label.size()[0])
     return accuracy

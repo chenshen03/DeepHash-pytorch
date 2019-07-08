@@ -57,7 +57,7 @@ def contrastive_loss(output, label, margin=16):
     return loss
 
 
-def exp_loss(output, label, alpha, balanced=True):
+def exp_loss(output, label, alpha, balanced=False):
     '''exponential loss
     '''
     batch_size, bit = output.shape
@@ -68,9 +68,9 @@ def exp_loss(output, label, alpha, balanced=True):
 
     # sigmoid
     D = distance(output, dist_type='cosine')
-    E = torch.log(1 + torch.exp(alpha * (1-2*D)))
+    E = torch.log(1 + torch.exp(-alpha * (1-2*D)))
     E_m = torch.masked_select(E, mask)
-    loss_1 = S_m * E_m + (1 - S_m) * (E_m - torch.log(torch.exp(E_m) - 1 + 1e-6))
+    loss_1 = 10 * S_m * E_m + (1 - S_m) * (E_m - torch.log((torch.exp(E_m) - 1).clamp(1e-6)))
 
     if balanced:
         S_all = batch_size * (batch_size - 1)

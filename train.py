@@ -37,16 +37,11 @@ def train(config):
     writer = SummaryWriter(logdir=tflog_path)
 
     ## set pre-process
-    prep_dict = {}
-    prep_config = config["prep"]
-    prep_dict["train"] = prep.image_train(
-                            resize_size=prep_config["resize_size"], \
-                            crop_size=prep_config["crop_size"])
+    resize_size, crop_size = config['prep'].values()
+    train_transform = prep.image_train(resize_size, crop_size)
 
     ## prepare data
-    train_data_config = config["data"]["train"]
-    train_set = ImageList(open(train_data_config["list_path"]).readlines(), \
-                    transform=prep_dict["train"])
+    train_set = ImageList(open(config["data"]['train']).readlines(), transform=train_transform)
     train_loader = util_data.DataLoader(train_set, \
                     batch_size=config["batch_size"], \
                     shuffle=True, num_workers=4)
@@ -54,16 +49,16 @@ def train(config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ## set base network
     net_config = config["network"]
-    base_network = net_config["type"](**net_config["params"])
-    writer.add_graph(base_network, input_to_model=(torch.rand(2, 3, 224, 224),))
-    base_network.to(device)
-    base_network.train()
+    model = net_config["type"](**net_config["params"])
+    writer.add_graph(model, input_to_model=(torch.rand(2, 3, 224, 224),))
+    model.to(device)
+    model.train()
         
     ## set optimizer and scheduler
     optimizer_config = config["optimizer"]
     lr = optimizer_config["optim_params"]["lr"]
-    parameter_list = [{"params":base_network.feature_layers.parameters(), "lr":lr}, \
-                      {"params":base_network.hash_layer.parameters(), "lr":lr*10}]
+    parameter_list = [{"params":model.feature_layers.parameters(), "lr":lr}, \
+                      {"params":model.hash_layer.parameters(), "lr":lr*10}]
     optimizer = optim_dict[optimizer_config["type"]](parameter_list, \
                 **optimizer_config["optim_params"])
     scheduler = scheduler_dict[optimizer_config["lr_type"]](optimizer, \
@@ -79,8 +74,9 @@ def train(config):
         inputs, labels = train_iter.next()
         inputs, labels = inputs.to(device), labels.to(device)
 
-        outputs = base_network(inputs)
+        outputs = model(inputs)
         s_loss = loss.pairwise_loss(outputs, labels, **config["loss"])
+        # s_loss = loss.exp_loss(outputs, labels, config["loss"]["alpha"])
         q_loss = loss.quantization_loss(outputs)
         total_loss = s_loss + 0.01 * q_loss
         total_loss.backward()
@@ -94,7 +90,7 @@ def train(config):
                 datetime.now(), i, s_loss.item(), q_loss.item()))
             
     writer.close()
-    torch.save(nn.Sequential(base_network), osp.join(config["output_path"], \
+    torch.save(nn.Sequential(model), osp.join(config["output_path"], \
         "iter_{:05d}_model.pth.tar".format(i+1)))
 
 
@@ -104,7 +100,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str, default='cifar', help="dataset name")
     parser.add_argument('--hash_bit', type=int, default=32, help="number of hash code bits")
     parser.add_argument('--net', type=str, default='AlexNet', help="base network type")
-    parser.add_argument('--prefix', type=str, default='debug', help="save path prefix")
+    parser.add_argument('--prefix', type=str, default='1', help="save path prefix")
     parser.add_argument('--lr', type=float, default=0.0005, help="learning rate")
     parser.add_argument('--batch_size', type=int, default=128, help="training batch size")
     parser.add_argument('--alpha', type=float, default=10.0, help="loss parameter")
@@ -122,7 +118,7 @@ if __name__ == "__main__":
     config["output_path"] = "./snapshot/"+args.dataset+"_"+ \
                             str(args.hash_bit)+"bit_"+args.net+"_"+args.prefix
 
-    config["prep"] = {"test_10crop":True, "resize_size":256, "crop_size":224}
+    config["prep"] = {"resize_size":256, "crop_size":224}
     config["loss"] = {"l_threshold":15.0, "alpha":args.alpha, "class_num":args.class_num}
     config["optimizer"] = {"type":"SGD", "optim_params":{"lr":args.lr, "momentum":0.9, \
                             "weight_decay":0.0005, "nesterov":True}, 
@@ -142,13 +138,13 @@ if __name__ == "__main__":
 
     # dataset config
     if config["dataset"] == "imagenet":
-        config["data"] = {"train":{"list_path":"./data/imagenet/train.txt"}}
+        config["data"] = {"train":"./data/imagenet/train.txt"}
     elif config["dataset"] == "nus_wide":
-        config["data"] = {"train":{"list_path":"./data/nus_wide/train.txt"}}
+        config["data"] = {"train":"./data/nus_wide/train.txt"}
     elif config["dataset"] == "coco":
-        config["data"] = {"train":{"list_path":"./data/coco/train.txt"}}
+        config["data"] = {"train":"./data/coco/train.txt"}
     elif config["dataset"] == "cifar":
-        config["data"] = {"train":{"list_path":"./data/cifar/train.txt"}}
+        config["data"] = {"train":"./data/cifar/train.txt"}
     
     if not osp.exists(config["output_path"]):
         os.mkdir(config["output_path"])
