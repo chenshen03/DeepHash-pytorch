@@ -1,12 +1,12 @@
-# HashNet
-PyTorch implementation for ["HashNet: Deep Learning to Hash by Continuation" (ICCV 2017)](https://arxiv.org/abs/1702.00758) 
+# DeepHash-Pytoch
+PyTorch implementation for DeepHash framework
 
 ## Prerequisites
 Linux or OSX
 
-NVIDIA GPU + CUDA (may CuDNN) and corresponding PyTorch framework (version 0.3.1)
+NVIDIA GPU + CUDA (may CuDNN) and corresponding PyTorch framework (version 1.0.0)
 
-Python 2.7/3.5
+Python 3.6
 
 ## Datasets
 We use ImageNet, NUS-WIDE and COCO dataset in our experiments. You can download the ImageNet dataset and NUS-WIDE dataset [here](https://drive.google.com/drive/folders/0B7IzDz-4yH_HOXdoaDU4dk40RFE?usp=sharing).
@@ -51,11 +51,11 @@ First, you can manually download the PyTorch pre-trained model introduced in `to
 Then, you can train the model for each dataset using the followling command.
 ```
 cd src
-python train.py --gpu_id 0 --dataset coco --prefix resnet50_hashnet --hash_bit 48 --net ResNet50 --lr 0.0003 --class_num 1.0
+python train.py --gpu_id 0 --dataset coco --prefix resnet50_hashnet --bit 48 --net ResNet50 --lr 0.0003 --class_num 1.0
 ```
 You can set the command parameters to switch between different experiments. 
 - "gpu_id" is the GPU ID to run experiments.
-- "hash_bit" parameter is the number of bits of the hash codes.
+- "bit" parameter is the number of bits of the hash codes.
 - "dataset" is the dataset selection. In our experiments, it can be "imagenet", "nus_wide" or "coco".
 - "prefix" is the path to output model snapshot and log file in "snapshot" directory.
 - "net" sets the base network. For details of setting, you can see network.py.
@@ -69,11 +69,11 @@ You can set the command parameters to switch between different experiments.
 You can evaluate the Mean Average Precision(MAP) result on each dataset using the followling command.
 ```
 cd src
-python test.py --gpu_id 0 --dataset coco --prefix resnet50_hashnet --hash_bit 48 --snapshot iter_09000
+python test.py --gpu_id 0 --dataset coco --prefix resnet50_hashnet --bit 48 --snapshot iter_10000
 ```
 You can set the command parameters to switch between different experiments. 
 - "gpu_id" is the GPU ID to run experiments.
-- "hash_bit" parameter is the number of bits of the hash codes.
+- "bit" parameter is the number of bits of the hash codes.
 - "dataset" is the dataset selection. In our experiments, it can be "imagenet", "nus_wide" or "coco".
 - "prefix" is the path to output model snapshot and log file in "snapshot" directory.
 - "snapshot" is the snapshot model name. "iter_09000" means the model snapshoted at iteration 9000.
