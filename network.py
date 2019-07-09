@@ -4,6 +4,17 @@ from torchvision import models
 from torch.autograd import Variable
 
 
+def load_model(name, bit):
+    if 'AlexNet' in name:
+        return AlexNetFc(bit)
+    elif 'ResNet' in name:
+        return ResNetFc(name, bit)
+    elif 'VGG' in name:
+        return VGGFc(name, bit)
+    else:
+        raise Exception('Not exist network: ', name)
+
+
 class AlexNetFc(nn.Module):
     def __init__(self, hash_bit, use_hashnet=False):
         super(AlexNetFc, self).__init__()

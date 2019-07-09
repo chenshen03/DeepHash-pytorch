@@ -18,15 +18,17 @@ from util.evaluation import *
 from util.visualize import *
 
 
+R = {'cifar': 54000, 'coco': 5000, 'nuswide': 5000, 'imagenet': 1000}
+
 def save_code_and_label(params, path):
-    np.save(path + "_code_and_label.npy", params)
+    np.save(osp.join(path, "code_and_label.npy"), params)
 
 
 def load_code_and_label(path):
-    return np.load(path + "_code_and_label.npy").item()
+    return np.load(osp.join(path, "code_and_label.npy")).item()
 
 
-def code_predict(dataloder, model, test_10crop=True, device=torch.device('cuda')):
+def code_predict(dataloder, model, test_10crop=True, device='cuda'):
     all_output = []
     all_label = []
     for i, (inputs, labels) in enumerate(dataloder):
@@ -42,32 +44,27 @@ def code_predict(dataloder, model, test_10crop=True, device=torch.device('cuda')
     return np.array(all_output), np.array(all_label)
 
 
-def predict(config):
+def predict(args):
     ## set pre-process
-    test_10crop, resize_size, crop_size = config['prep'].values()
-    if test_10crop:
-        database_transform = prep.image_test_10crop(resize_size, crop_size)
-        test_transform = prep.image_test_10crop(resize_size, crop_size)
+    if args.test_10crop:
+        database_transform = prep.image_test_10crop(resize_size=256, crop_size=224)
+        test_transform = prep.image_test_10crop(resize_size=256, crop_size=224)
     else:
-        database_transform = prep.image_test(resize_size, crop_size)
-        test_transform = prep.image_test(resize_size, crop_size)
+        database_transform = prep.image_test(resize_size=256, crop_size=224)
+        test_transform = prep.image_test(resize_size=256, crop_size=224)
                
     ## prepare data
-    database_set = ImageList(open(config['data']['database']).readlines(), transform=database_transform)
-    database_loder = util_data.DataLoader(database_set, \
-                            batch_size=config["batch_size"], \
-                            shuffle=False, num_workers=4)
-    test_set = ImageList(open(config['data']['test']).readlines(), transform=test_transform)
-    test_loder = util_data.DataLoader(test_set, \
-                            batch_size=config["batch_size"], \
-                            shuffle=False, num_workers=4)
+    database_set = ImageList(open(args.database_path).readlines(), transform=database_transform)
+    database_loder = util_data.DataLoader(database_set, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    test_set = ImageList(open(args.test_path).readlines(), transform=test_transform)
+    test_loder = util_data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=4)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = torch.load(config["snapshot_path"]).to(device)
+    model = torch.load(args.snapshot_path).to(device)
     model.eval()
 
-    db_feats, db_labels = code_predict(database_loder, model, test_10crop=test_10crop, device=device)
-    test_feats, test_labels = code_predict(test_loder, model, test_10crop=test_10crop, device=device)
+    db_feats, db_labels = code_predict(database_loder, model, test_10crop=args.test_10crop, device=device)
+    test_feats, test_labels = code_predict(test_loder, model, test_10crop=args.test_10crop, device=device)
 
     return {"db_feats":db_feats, "db_codes":sign(db_feats), "db_labels":db_labels, \
             "test_feats":test_feats, "test_codes":sign(test_feats), "test_labels":test_labels}
@@ -77,53 +74,34 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Transfer Learning')
     parser.add_argument('--gpus', type=str, default='0', help="device id to run")
     parser.add_argument('--dataset', type=str, default='cifar', help="dataset name")
-    parser.add_argument('--hash_bit', type=int, default=32, help="number of hash code bits")
+    parser.add_argument('--bit', type=int, default=32, help="number of hash code bits")
     parser.add_argument('--net', type=str, default='AlexNet', help="base network type")
     parser.add_argument('--prefix', type=str, default='hashnet', help="save path prefix")
     parser.add_argument('--snapshot', type=str, default='iter_10000', help="model path prefix")
     parser.add_argument('--batch_size', type=int, default=16, help="testing batch size")
+    parser.add_argument('--test_10crop', default=True, help='use TenCrop transform')
     parser.add_argument('--preload', default=False, action='store_true')
-
     args = parser.parse_args()
+    args.output_path = f'./snapshot/{args.dataset}_{str(args.bit)}bit_{args.net}_{args.prefix}'
+    args.snapshot_path =  f'{args.output_path}/model.pth'
+    args.database_path = f'./data/{args.dataset}/database.txt'
+    args.test_path = f'./data/{args.dataset}/test.txt'
+    args.R = R[args.dataset]
+
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
 
-    # train config  
-    config = {}
-    config["batch_size"] = args.batch_size
-    config["dataset"] = args.dataset
-    config["output_path"] = "./snapshot/"+config["dataset"]+"_"+str(args.hash_bit)+ \
-                            "bit_"+ args.net+"_"+args.prefix
-    config["snapshot_path"] = config["output_path"]+"/"+args.snapshot+"_model.pth.tar"
-    sys.stdout = Logger(osp.join(config["output_path"], "test.log"))
-
-    config["prep"] = {"test_10crop":True, "resize_size":256, "crop_size":224}
-    if config["dataset"] == "imagenet":
-        config["data"] = {"database":"./data/imagenet/database.txt", \
-                          "test":"./data/imagenet/test.txt"}
-        config["R"] = 1000
-    elif config["dataset"] == "nus_wide":
-        config["data"] = {"database":"./data/nus_wide/database.txt", \
-                          "test":"./data/nus_wide/test.txt"}
-        config["R"] = 5000
-    elif config["dataset"] == "coco":
-        config["data"] = {"database":"./data/coco/database.txt", \
-                          "test":"./data/coco/test.txt"}
-        config["R"] = 5000
-    elif config["dataset"] == "cifar":
-        config["data"] = {"database":"./data/cifar/database.txt", \
-                          "test":"./data/cifar/test.txt"}
-        config["R"] = 54000
+    sys.stdout = Logger(osp.join(args.output_path, "test.log"))
 
     print("test start")
-    pprint(config)
+    pprint(args)
     if args.preload == True:
         print("loading code and label ...")
-        code_and_label = load_code_and_label(osp.join(config["output_path"], args.snapshot))
+        code_and_label = load_code_and_label(args.output_path)
     else:
         print("calculating code and label ...")
-        code_and_label = predict(config)
+        code_and_label = predict(args)
         print("saving code and label ...")
-        save_code_and_label(code_and_label, osp.join(config["output_path"], args.snapshot))
+        save_code_and_label(code_and_label, args.output_path)
         print("saving done")
     
     db_feats = code_and_label['db_feats']
@@ -134,12 +112,12 @@ if __name__ == "__main__":
     test_labels = code_and_label['test_labels']
 
     print("visualizing data ...")
-    plot_distribution(db_feats, config["output_path"])
-    plot_distance(db_feats, db_labels, test_feats, test_labels, config["output_path"])
-    plot_tsne(db_codes, db_labels, config["output_path"])
+    plot_distribution(db_feats, args.output_path)
+    plot_distance(db_feats, db_labels, test_feats, test_labels, args.output_path)
+    plot_tsne(db_codes, db_labels, args.output_path)
 
-    mAP_feat = get_mAP(db_feats, db_labels, test_feats, test_labels, config["R"])
-    mAP = get_mAP(db_codes, db_labels, test_codes, test_labels, config["R"])
+    mAP_feat = get_mAP(db_feats, db_labels, test_feats, test_labels, args.R)
+    mAP = get_mAP(db_codes, db_labels, test_codes, test_labels, args.R)
     print(f"mAP@feats: {mAP_feat}\nmAP@codes: {mAP}")
     
     print("test finished")
