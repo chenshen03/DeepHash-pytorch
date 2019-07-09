@@ -11,7 +11,7 @@ from torch.autograd import Variable
 import network
 import loss
 import preprocess as prep
-from datalist import ImageList
+from datalist import ImageDataset
 from pprint import pprint
 from util import Logger, sign
 from util.evaluation import *
@@ -54,12 +54,12 @@ def predict(args):
         test_transform = prep.image_test(resize_size=256, crop_size=224)
                
     ## prepare data
-    database_set = ImageList(open(args.database_path).readlines(), transform=database_transform)
+    database_set = ImageDataset(args.database_path, transform=database_transform)
     database_loder = util_data.DataLoader(database_set, batch_size=args.batch_size, shuffle=False, num_workers=4)
-    test_set = ImageList(open(args.test_path).readlines(), transform=test_transform)
+    test_set = ImageDataset(args.test_path, transform=test_transform)
     test_loder = util_data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=4)
     
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model = torch.load(args.snapshot_path).to(device)
     model.eval()
 

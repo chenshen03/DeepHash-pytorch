@@ -9,13 +9,14 @@ import torch
 import torch.nn as nn
 import torch.utils.data as util_data
 import torch.optim as optim
+import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 from tensorboardX import SummaryWriter
 
 import loss
 import preprocess as prep
 from network import load_model
-from datalist import ImageList
+from datalist import ImageDataset
 from util import Logger
 from pprint import pprint
 from datetime import datetime
@@ -23,10 +24,6 @@ from datetime import datetime
 # https://github.com/microsoft/ptvsd/issues/943#issuecomment-480782087
 import multiprocessing
 multiprocessing.set_start_method('spawn', True)
-
-
-optim_dict = {"SGD": optim.SGD, "Adam": optim.Adam}
-scheduler_dict = {"step": optim.lr_scheduler.StepLR}
 
 
 def train(args):
@@ -38,14 +35,16 @@ def train(args):
 
     ## prepare data
     train_transform = prep.image_train(resize_size=256, crop_size=224)
-    train_set = ImageList(open(args.train_path).readlines(), transform=train_transform)
+    train_set = ImageDataset(args.train_path, transform=train_transform)
     train_loader = util_data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=4)
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     ## set base network
     model = load_model(args.net, args.bit)
     writer.add_graph(model, input_to_model=(torch.rand(2, 3, 224, 224),))
     model.to(device)
+    if device == 'cuda':
+        cudnn.benchmark = True
     model.train()
         
     ## set optimizer and scheduler
@@ -66,7 +65,6 @@ def train(args):
 
         outputs = model(inputs)
         s_loss = loss.pairwise_loss(outputs, labels, alpha=args.alpha, class_num=args.class_num)
-        # s_loss = loss.exp_loss(outputs, labels, alpha=args.alpha)
         q_loss = loss.quantization_loss(outputs)
         total_loss = s_loss + 0.01 * q_loss
         total_loss.backward()
